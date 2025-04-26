@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plant Disease Detector</title>
+
+    <!-- Bootstrap CSS for Modern Styling -->
+    <link rel="stylesheet" 
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #fbfbfb;
+            text-align: center;
+            padding: 20px;
+        }
+        .container {
+            max-width: 500px;
+            background: rgb(189, 250, 195);
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0px 4px 10px rgba(0,0,0,0.1);
+            margin-top: 50px;
+        }
+        .drop-zone {
+            border: 2px dashed #007bff;
+            padding: 20px;
+            cursor: pointer;
+            color: #007bff;
+            font-weight: bold;
+            text-align: center;
+            position: relative;
+        }
+        .drop-zone.dragover {
+            background-color: #e3f2fd;
+        }
+        #imageUpload {
+            display: none;
+        }
+        #preview {
+            display: none;
+            max-width: 100%;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+        .loader {
+            display: none;
+            width: 30px;
+            height: 30px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 10px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .result {
+            display: none;
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2 class="mb-4">🌱 Plant Disease Detector</h2>
+
+        <!-- Drag & Drop File Upload -->
+        <div class="drop-zone" id="dropZone">
+            Drag & Drop or Click to Upload an Image
+            <input type="file" id="imageUpload" accept="image/*">
+        </div>
+
+        <!-- Image Preview -->
+        <img id="preview" alt="Uploaded Image Preview">
+
+        <!-- Upload Button -->
+        <button id="uploadButton" class="btn btn-primary mt-3" onclick="uploadImage()">Predict Disease</button>
+
+        <!-- Loading Indicator -->
+        <div class="loader" id="loading"></div>
+
+        <!-- Result Display -->
+        <p class="result" id="result"></p>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById("dropZone");
+        const fileInput = document.getElementById("imageUpload");
+        const preview = document.getElementById("preview");
+        const loader = document.getElementById("loading");
+        const result = document.getElementById("result");
+
+        // ✅ Clicking on drop zone should open file picker
+        dropZone.addEventListener("click", () => {
+            fileInput.click();
+        });
+
+        // ✅ Update UI when file is selected
+        fileInput.addEventListener("change", function () {
+            if (fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                previewFile(file);
+            }
+        });
+
+        // ✅ Handle Drag & Drop Uploads
+        dropZone.addEventListener("dragover", (event) => {
+            event.preventDefault();
+            dropZone.classList.add("dragover");
+        });
+
+        dropZone.addEventListener("dragleave", () => {
+            dropZone.classList.remove("dragover");
+        });
+
+        dropZone.addEventListener("drop", (event) => {
+            event.preventDefault();
+            dropZone.classList.remove("dragover");
+
+            if (event.dataTransfer.files.length > 0) {
+                fileInput.files = event.dataTransfer.files;
+                const file = event.dataTransfer.files[0];
+                previewFile(file);
+            }
+        });
+
+        // ✅ Function to Preview Image
+        function previewFile(file) {
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                preview.src = e.target.result;
+                preview.style.display = "block";
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // ✅ Upload Image and Get Prediction
+        function uploadImage() {
+            if (!fileInput.files.length) {
+                alert("Please select an image!");
+                return;
+            }
+
+            let formData = new FormData();
+            formData.append("file", fileInput.files[0]);
+
+            // Show Loading
+            loader.style.display = "block";
+            result.style.display = "none";
+
+            fetch("/predict", { // ✅ This sends request to Flask
+                method: "POST",
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error("Network response was not ok");
+                }
+                return response.json();
+            })
+            .then(data => {
+                loader.style.display = "none";
+                result.style.display = "block";
+                if (data.error) {
+                    result.innerHTML = `⚠️ Error: ${data.error}`;
+                } else {
+                    result.innerHTML = `Prediction: <b>${data.class}</b> <br> Confidence: <b>${data.confidence}</b>`;
+                    preview.src = data.image_url;
+                    preview.style.display = "block";
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                loader.style.display = "none";
+                result.innerHTML = "⚠️ Error in prediction!";
+                result.style.display = "block";
+            });
+        }
+    </script>
+
+</body>
+</html>
